@@ -1,0 +1,12 @@
+{
+  "name": "sandomattic",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "bin": "index.js",
+  "author": "Marek Hrabe",
+  "license": "MIT",
+  "dependencies": {
+    "prompt-checkbox": "^2.2.0"
+  }
+}
