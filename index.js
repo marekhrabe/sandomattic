@@ -20,12 +20,12 @@ fs.readFile(HOSTS_FILE, 'utf8', (err, data) => {
       let parsedLine = line.trim().split(/\s+/);
       const isDisabled = parsedLine[0] === '#';
       const ip = parsedLine[isDisabled ? 1 : 0];
-      const host = parsedLine[isDisabled ? 2 : 1];
+      const host = parsedLine.slice(isDisabled ? 2 : 1);
       if (ip && host) {
         hosts.push({
           index: i,
           ip: ip,
-          host: host,
+          host: host.join(' '),
           disabled: isDisabled,
         });
       }
