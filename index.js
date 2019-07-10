@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
-const readline = require('readline');
 const CheckboxPrompt = require('prompt-checkbox');
 const CONFIG_PREFIX = '# wpcom sandbox: ';
 const HOSTS_FILE = process.env.HOSTS_FILE || '/etc/hosts';
+const argv = process.argv;
+const { ask, writeHosts } = require('./utils');
 
-fs.readFile(HOSTS_FILE, 'utf8', (err, data) => {
+fs.readFile(HOSTS_FILE, 'utf8', async (err, data) => {
   if (err) throw err;
 
   const lines = data.split('\n');
@@ -35,30 +36,42 @@ fs.readFile(HOSTS_FILE, 'utf8', (err, data) => {
   if (!sanbdoxIP) {
     console.log('No config found. This might be your first run of this utility.');
 
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-
-    return rl.question('What is your Sandbox IP address? ', (ip) => {
-      rl.close();
-      if (ip.length > 0) {
-        writeHosts([CONFIG_PREFIX + ip].concat(lines));
-      } else {
-        console.log('No IP provided.');
-      }
-    });
-  } else {
-    console.log('Your Sandbox is ' + sanbdoxIP);
+    const ip = await ask('What is your Sandbox IP address?');
+    if (ip.length > 0) {
+      lines.push(CONFIG_PREFIX + ip);
+      sanbdoxIP = ip;
+    } else {
+      console.log('No IP provided.');
+      return;
+    }
   }
+
+  console.log('Your Sandbox is ' + sanbdoxIP);
 
   const sandboxedHosts = hosts.filter((host) => host.ip === sanbdoxIP);
 
   if (sandboxedHosts.length === 0) {
     console.log('No sites sandboxed.');
-    return;
   }
 
+  if ( sandboxedHosts.length === 0 || argv.indexOf('add') > -1) {
+    const host = await ask('Add domain for sandboxing:')
+    if (host) {
+      const index = lines.push( sanbdoxIP + ' ' + host );
+      const entry = {
+        index,
+        host,
+        ip: sanbdoxIP,
+      };
+      hosts.push(entry);
+      sandboxedHosts.push(entry);
+      console.log('🆗');
+    } else {
+      console.log('Nothing added.');
+    }
+  }
+
+  console.log('');
   new CheckboxPrompt({
     name: 'sites',
     message: 'What to sandbox?',
@@ -68,7 +81,6 @@ fs.readFile(HOSTS_FILE, 'utf8', (err, data) => {
     if (active.length === 0) {
       console.log('Nothing');
     }
-    const newLines = lines.slice();
     sandboxedHosts.forEach((host) => {
       if (host.disabled && active.indexOf(host.host) > -1) {
         lines[host.index] = lines[host.index].replace(/^# /g, '');
@@ -76,22 +88,6 @@ fs.readFile(HOSTS_FILE, 'utf8', (err, data) => {
         lines[host.index] = '# ' + lines[host.index];
       }
     });
-    writeHosts(lines);
+    writeHosts(HOSTS_FILE, lines);
   });
 });
-
-const writeHosts = (lines) => {
-  fs.writeFile(HOSTS_FILE, lines.join('\n'), 'utf8', (err) => {
-    if (err) {
-      if (err.code === 'EACCES') {
-        console.log('This needs to be run with sudo to write /etc/hosts');
-        console.log('❌');
-        return process.exit(1);
-      } else {
-        throw err;
-      }
-    }
-
-    console.log('✅');
-  });
-};
